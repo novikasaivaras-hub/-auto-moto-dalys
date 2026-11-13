@@ -1,0 +1,62 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+.env*
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# AUTO_MOTO_GITHUB_SAFETY_V1
+# Vietines atsargines kopijos
+*.bak-*
+*.backup-*
+*.bak
+*.backup
+
+# Vietiniai duomenu eksportai ir laikini failai
+*.local.sql
+*.local.csv
+*.tmp
+*.temp
+
+# AUTO_MOTO_GITHUB_CLEANUP_V1
+/test-import.csv
+/typescript-klaidos.txt
+/parts-marketplace/
+
+# AUTO_MOTO_BACKUP_TXT_V1
+*.backup.txt
