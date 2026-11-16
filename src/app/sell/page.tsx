@@ -690,7 +690,25 @@ export default function SellPage() {
   }
 
   // --------------------------------------------------
-  // PUSLAPIO VAIZDAS
+  // AUTO_MOTO_PART_PROGRESS_V1
+  const partRequiredFields = [
+    { label: "Pavadinimas", filled: title.trim().length > 0 },
+    {
+      label: "Kaina",
+      filled:
+        price.trim().length > 0 &&
+        Number.isFinite(Number(price)) &&
+        Number(price) >= 0,
+    },
+  ];
+
+  const partCompletedFields =
+    partRequiredFields.filter((field) => field.filled).length;
+
+  const partCompletionPercent = Math.round(
+    (partCompletedFields / partRequiredFields.length) * 100
+  );
+    // PUSLAPIO VAIZDAS
   // --------------------------------------------------
 
   return (
@@ -870,6 +888,52 @@ export default function SellPage() {
             onSubmit={handleSubmit}
             className="space-y-6 rounded-2xl bg-white p-6 shadow-lg sm:p-8"
           >
+            <div className="rounded-2xl border border-[#D9E2E0] bg-[#F5F9F8] p-4">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-bold text-[#24333D]">
+                  Detalės skelbimo užpildymas
+                </p>
+                <p className="text-sm font-semibold text-[#426A70]">
+                  {partCompletedFields} iš {partRequiredFields.length}
+                </p>
+              </div>
+
+              <div
+                className="mt-3 h-2 overflow-hidden rounded-full bg-[#D9E2E0]"
+                role="progressbar"
+                aria-label="Detalės privalomų laukų užpildymas"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={partCompletionPercent}
+              >
+                <div
+                  className="h-full rounded-full bg-[#426A70] transition-all duration-300"
+                  style={{ width: `${partCompletionPercent}%` }}
+                />
+              </div>
+
+              <div className="mt-4 flex flex-wrap gap-2">
+                {partRequiredFields.map((field) => (
+                  <span
+                    key={field.label}
+                    className={
+                      field.filled
+                        ? "rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-800"
+                        : "rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200"
+                    }
+                  >
+                    {field.filled ? "✓ " : "○ "}
+                    {field.label}
+                  </span>
+                ))}
+              </div>
+
+              <p className="mt-3 text-xs text-slate-600">
+                {partCompletedFields === partRequiredFields.length
+                  ? "Pagrindiniai laukai užpildyti."
+                  : `Liko užpildyti ${partRequiredFields.length - partCompletedFields} privalomus laukus.`}
+              </p>
+            </div>
             {/* DETALĖS INFORMACIJA */}
 
             <div>
@@ -1480,29 +1544,36 @@ export default function SellPage() {
 
             {/* SKELBIMO PASKELBIMAS */}
 
-            <button
-              type="submit"
-              disabled={
-                loading ||
-                locationsLoading ||
-                savingLocation ||
-                donorLoading ||
-                Boolean(donorError)
-              }
-              className="w-full rounded-xl bg-[#426A70] p-4 font-bold text-white transition hover:bg-[#35565B] disabled:opacity-50"
-            >
-              {loading
-                ? "Saugoma..."
-                : donorLoading
-                  ? "Kraunami donoro duomenys..."
-                  : "Paskelbti detalę"}
-            </button>
+            {/* AUTO_MOTO_PART_MOBILE_SUBMIT_V1 */}
+            <div className="sticky bottom-0 z-20 -mx-6 border-t border-[#D9E2E0] bg-white/95 px-6 py-3 shadow-[0_-6px_20px_rgba(0,0,0,0.08)] backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0 sm:shadow-none">
+              <button
+                type="submit"
+                disabled={
+                  loading ||
+                  locationsLoading ||
+                  savingLocation ||
+                  donorLoading ||
+                  Boolean(donorError) ||
+                  partCompletedFields < partRequiredFields.length
+                }
+                className="w-full min-h-12 rounded-xl bg-[#426A70] px-4 py-3 font-bold text-white transition hover:bg-[#35565B] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {loading
+                  ? "Saugoma..."
+                  : donorLoading
+                    ? "Kraunami donoro duomenys..."
+                    : partCompletedFields < partRequiredFields.length
+                      ? `Užpildyk privalomus laukus (${partCompletedFields}/${partRequiredFields.length})`
+                      : "Paskelbti detalę"}
+              </button>
+            </div>
           </form>
         )}
       </div>
     </main>
   );
 }
+
 
 
 

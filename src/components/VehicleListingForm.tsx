@@ -267,6 +267,29 @@ export default function VehicleListingForm({
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [progress, setProgress] = useState("");
+  // AUTO_MOTO_FORM_PROGRESS_V1
+  const requiredFields = [
+    manufacturer.trim(),
+    model.trim(),
+    year.trim(),
+    price.trim(),
+    city.trim(),
+  ];
+
+
+  // AUTO_MOTO_REQUIRED_FIELDS_V1
+  const requiredFieldStatus = [
+    { label: "Markė", filled: manufacturer.trim().length > 0 },
+    { label: "Modelis", filled: model.trim().length > 0 },
+    { label: "Pagaminimo metai", filled: year.trim().length > 0 },
+    { label: "Kaina", filled: price.trim().length > 0 },
+    { label: "Miestas", filled: city.trim().length > 0 },
+  ];
+  const completedFields = requiredFields.filter(Boolean).length;
+  const completionPercent = Math.round(
+    (completedFields / requiredFields.length) * 100
+  );
+
 
   function handleImages(event: ChangeEvent<HTMLInputElement>) {
     const selected = Array.from(event.target.files ?? []);
@@ -718,6 +741,52 @@ export default function VehicleListingForm({
       onSubmit={handleSubmit}
       className="space-y-6 rounded-2xl bg-white p-6 shadow-lg sm:p-8"
     >
+      <div className="rounded-2xl border border-[#D9E2E0] bg-[#F5F9F8] p-4">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm font-bold text-[#24333D]">
+            Skelbimo užpildymas
+          </p>
+          <p className="text-sm font-semibold text-[#426A70]">
+            {completedFields} iš {requiredFields.length}
+          </p>
+        </div>
+
+        <div
+          className="mt-3 h-2 overflow-hidden rounded-full bg-[#D9E2E0]"
+          role="progressbar"
+          aria-label="Privalomų laukų užpildymas"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={completionPercent}
+        >
+          <div
+            className="h-full rounded-full bg-[#426A70] transition-all duration-300"
+            style={{ width: `${completionPercent}%` }}
+          />
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          {requiredFieldStatus.map((field) => (
+            <span
+              key={field.label}
+              className={
+                field.filled
+                  ? "rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-800"
+                  : "rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200"
+              }
+            >
+              {field.filled ? "✓ " : "○ "}
+              {field.label}
+            </span>
+          ))}
+        </div>
+        <p className="mt-2 text-xs text-slate-600">
+          {completedFields === requiredFields.length
+            ? "Visi pagrindiniai laukai užpildyti."
+            : `Liko užpildyti ${requiredFields.length - completedFields} privalomus laukus.`}
+        </p>
+      </div>
+
       <div>
         <h2 className="text-xl font-bold text-[#24333D]">
           Transporto priemonės informacija
@@ -1136,14 +1205,30 @@ export default function VehicleListingForm({
         </p>
       )}
 
-      <button
-        type="submit"
-        disabled={loading}
-        className="w-full rounded-xl bg-[#426A70] p-4 font-bold text-white disabled:opacity-50"
-      >
-        {loading ? "Saugoma..." : "Paskelbti transporto priemonę"}
-      </button>
+      {/* AUTO_MOTO_MOBILE_SUBMIT_V1 */}
+      <div className="sticky bottom-0 z-20 -mx-6 border-t border-[#D9E2E0] bg-white/95 px-6 py-3 shadow-[0_-6px_20px_rgba(0,0,0,0.08)] backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0 sm:shadow-none">
+        <button
+          type="submit"
+          disabled={loading || completedFields < requiredFields.length}
+          className="w-full min-h-12 rounded-xl bg-[#426A70] px-4 py-3 font-bold text-white transition-colors hover:bg-[#35575C] disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {loading
+            ? "Saugoma..."
+            : completedFields < requiredFields.length
+              ? `Užpildyk privalomus laukus (${completedFields}/${requiredFields.length})`
+              : "Paskelbti transporto priemonę"}
+        </button>
+
+        {completedFields < requiredFields.length && !loading && (
+          <p className="mt-2 text-center text-xs text-slate-500">
+            Užpildyk visus privalomus laukus, kad galėtum paskelbti skelbimą.
+          </p>
+        )}
+      </div>
     </form>
   );
 }
+
+
+
 
