@@ -1,4 +1,4 @@
-
+﻿
 "use client";
 
 import { useEffect, useRef, useState } from "react";
@@ -118,11 +118,16 @@ function VehiclePhotoGallery({
     </div>
   );
 }
-export default function VehicleListingForm() {
+/* AUTO_MOTO_VEHICLE_TYPE_SYNC_V1 */
+export default function VehicleListingForm({
+  initialCategory = "car",
+}: {
+  initialCategory?: Category;
+}) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [category, setCategory] = useState<Category>("car");
+  const [category] = useState<Category>(initialCategory);
   const [manufacturer, setManufacturer] = useState("");
   const [model, setModel] = useState("");
   const [year, setYear] = useState("");
@@ -136,10 +141,18 @@ export default function VehicleListingForm() {
   const [enginePower, setEnginePower] = useState("");
   const [transmission, setTransmission] = useState("");
   const [bodyType, setBodyType] = useState("");
+  const [doorCount, setDoorCount] = useState("");
+  const [motorcycleType, setMotorcycleType] = useState("");
+  const [city, setCity] = useState("");
   const [driveType, setDriveType] = useState("");
   const [color, setColor] = useState("");
   const [inspectionUntil, setInspectionUntil] = useState("");
   const [vin, setVin] = useState("");
+  const vinAutoValuesRef = useRef<Record<string, string>>({});
+  const vinRequestRef = useRef(0);
+
+  const [vinLoading, setVinLoading] = useState(false);
+  const [vinMessage, setVinMessage] = useState("");
   const [damageNotes, setDamageNotes] = useState("");
   const [equipment, setEquipment] = useState<string[]>([]);
 
@@ -282,6 +295,247 @@ export default function VehicleListingForm() {
     setMessage("");
   }
 
+  function clearPreviousVinData() {
+    const previous = vinAutoValuesRef.current;
+
+    const clearIfAuto = (
+      key: string,
+      setter: React.Dispatch<React.SetStateAction<string>>
+    ) => {
+      const oldValue = previous[key];
+      if (!oldValue) return;
+
+      setter((current: string) =>
+        current === oldValue ? "" : current
+      );
+    };
+
+    clearIfAuto("manufacturer", setManufacturer);
+    clearIfAuto("model", setModel);
+    clearIfAuto("year", setYear);
+    clearIfAuto("engineCapacity", setEngineCapacity);
+    clearIfAuto("enginePower", setEnginePower);
+    clearIfAuto("fuelType", setFuelType);
+    clearIfAuto("transmission", setTransmission);
+    clearIfAuto("bodyType", setBodyType);
+    clearIfAuto("driveType", setDriveType);
+    clearIfAuto("doorCount", setDoorCount);
+
+    vinAutoValuesRef.current = {};
+  }
+  async function handleVinLookup() {
+    const cleanVin = vin.trim().toUpperCase();
+
+    if (!/^[A-HJ-NPR-Z0-9]{17}$/.test(cleanVin)) {
+      setVinMessage("VIN turi sudaryti 17 simbolių (be I, O ir Q).");
+      return;
+    }
+
+    const requestId = ++vinRequestRef.current;
+    setVinLoading(true);
+    setVinMessage("");
+
+    try {
+      const response = await fetch(
+        `https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValues/${encodeURIComponent(cleanVin)}?format=json`
+      );
+
+      if (!response.ok) {
+        throw new Error("VIN paslauga šiuo metu nepasiekiama.");
+      }
+
+      const payload = await response.json();
+      const result = payload?.Results?.[0];
+      if (requestId !== vinRequestRef.current) return;
+
+      if (!result) {
+        throw new Error("VIN duomenų nepavyko gauti.");
+      }
+
+      const read = (key: string) =>
+        String(result[key] ?? "").trim();
+
+      const normalize = (value: string) =>
+        value.toLowerCase().replace(/\s+/g, " ").trim();
+
+      const make = read("Make");
+      const vehicleModel = read("Model");
+      const modelYear = read("ModelYear");
+
+      let filled = 0;
+
+      if (make) {
+        setManufacturer(make);
+        vinAutoValuesRef.current["manufacturer"] = make;
+        filled++;
+      }
+
+      if (vehicleModel) {
+        setModel(vehicleModel);
+        vinAutoValuesRef.current["model"] = vehicleModel;
+        filled++;
+      }
+
+      if (/^\d{4}$/.test(modelYear)) {
+        setYear(modelYear);
+        vinAutoValuesRef.current["year"] = modelYear;
+        filled++;
+      }
+
+      const displacement = Number(read("DisplacementCC"));
+
+      if (displacement > 0 && Number.isFinite(displacement)) {
+        setEngineCapacity(String(Math.round(displacement)));
+        vinAutoValuesRef.current["engineCapacity"] = String(Math.round(displacement));
+        filled++;
+      }
+
+      let power = Number(read("EngineKW"));
+
+      if (!(power > 0)) {
+        const hp = Number(read("EngineHP"));
+        if (hp > 0) power = hp * 0.745699872;
+      }
+
+      if (power > 0 && Number.isFinite(power)) {
+        setEnginePower(String(Math.round(power)));
+        vinAutoValuesRef.current["enginePower"] = String(Math.round(power));
+        filled++;
+      }
+
+      const fuel = normalize(read("FuelTypePrimary"));
+      const secondaryFuel = normalize(read("FuelTypeSecondary"));
+      const electrification = normalize(read("ElectrificationLevel"));
+
+      let mappedFuel = "";
+
+      if (
+        electrification.includes("plug-in") ||
+        electrification.includes("phev")
+      ) {
+        mappedFuel = "Įkraunamas hibridas";
+      } else if (
+        electrification.includes("hybrid") ||
+        electrification.includes("hev")
+      ) {
+        mappedFuel = "Hibridas";
+      } else if (
+        fuel.includes("electric") ||
+        electrification.includes("battery electric")
+      ) {
+        mappedFuel = "Elektra";
+      } else if (
+        (fuel.includes("gasoline") && secondaryFuel.includes("lpg")) ||
+        (fuel.includes("lpg") && secondaryFuel.includes("gasoline"))
+      ) {
+        mappedFuel = "Benzinas / dujos";
+      } else if (fuel.includes("diesel")) {
+        mappedFuel = "Dyzelinas";
+      } else if (fuel.includes("gasoline")) {
+        mappedFuel = "Benzinas";
+      }
+
+      if (mappedFuel) {
+        setFuelType(mappedFuel);
+        vinAutoValuesRef.current["fuelType"] = mappedFuel;
+        filled++;
+      }
+
+      const transmissionValue = normalize(read("TransmissionStyle"));
+
+      if (transmissionValue.includes("automatic")) {
+        setTransmission("Automatinė");
+        vinAutoValuesRef.current["transmission"] = "Automatinė";
+        filled++;
+      } else if (transmissionValue.includes("manual")) {
+        setTransmission("Mechaninė");
+        vinAutoValuesRef.current["transmission"] = "Mechaninė";
+        filled++;
+      }
+
+      const body = normalize(read("BodyClass"));
+
+      let mappedBody = "";
+
+      if (body.includes("sport utility") || body.includes("suv")) {
+        mappedBody = "Visureigis";
+      } else if (body.includes("hatchback")) {
+        mappedBody = "Hečbekas";
+      } else if (body.includes("wagon")) {
+        mappedBody = "Universalas";
+      } else if (body.includes("sedan")) {
+        mappedBody = "Sedanas";
+      } else if (body.includes("coupe")) {
+        mappedBody = "Kupė";
+      } else if (body.includes("convertible") || body.includes("cabriolet")) {
+        mappedBody = "Kabrioletas";
+      } else if (body.includes("minivan") || body.includes("van")) {
+        mappedBody = "Vienatūris";
+      }
+
+      if (category === "car" && mappedBody) {
+        setBodyType(mappedBody);
+        vinAutoValuesRef.current["bodyType"] = mappedBody;
+        filled++;
+      }
+
+      const drive = normalize(read("DriveType"));
+
+      let mappedDrive = "";
+
+      if (
+        drive.includes("all-wheel") ||
+        drive.includes("four-wheel") ||
+        drive.includes("4wd") ||
+        drive.includes("awd") ||
+        drive.includes("4x4")
+      ) {
+        mappedDrive = "Visi (4x4)";
+      } else if (
+        drive.includes("front-wheel") ||
+        drive.includes("fwd")
+      ) {
+        mappedDrive = "Priekiniai";
+      } else if (
+        drive.includes("rear-wheel") ||
+        drive.includes("rwd")
+      ) {
+        mappedDrive = "Galiniai";
+      }
+
+      if (category === "car" && mappedDrive) {
+        setDriveType(mappedDrive);
+        vinAutoValuesRef.current["driveType"] = mappedDrive;
+        filled++;
+      }
+
+      const doors = read("Doors");
+
+      if (
+        category === "car" &&
+        ["2", "3", "4", "5", "6", "7"].includes(doors)
+      ) {
+        setDoorCount(doors);
+        vinAutoValuesRef.current["doorCount"] = doors;
+        filled++;
+      }
+      setVin(cleanVin);
+
+      setVinMessage(
+        filled > 0
+          ? `VIN patikrintas. Automatiškai užpildyti ${filled} laukai. Patikrink duomenis ir papildyk trūkstamus.`
+          : "VIN patikrintas, tačiau šiam automobiliui automatiniai duomenys nerasti. Užpildyk rankiniu būdu."
+      );
+    } catch (error) {
+      setVinMessage(
+        error instanceof Error
+          ? error.message
+          : "Nepavyko patikrinti VIN."
+      );
+    } finally {
+      setVinLoading(false);
+    }
+  }
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (loading) return;
@@ -328,6 +582,10 @@ export default function VehicleListingForm() {
       if (cleanVin && !/^[A-HJ-NPR-Z0-9]{17}$/.test(cleanVin)) {
         throw new Error("VIN turi sudaryti 17 raidžių ir skaitmenų (be I, O ir Q).");
       }
+      if (!city.trim()) {
+        throw new Error("Nurodyk miestą, kuriame yra transporto priemonė.");
+      }
+
       setProgress("Kuriamas skelbimas...");
 
       const { data: listing, error: listingError } =
@@ -352,8 +610,11 @@ export default function VehicleListingForm() {
               engineCapacity && `Variklio tūris: ${engineCapacity} cm³`,
               enginePower && `Variklio galia: ${enginePower} kW`,
               transmission && `Pavarų dėžė: ${transmission}`,
-              bodyType && `Kėbulas: ${bodyType}`,
-              driveType && `Varantieji ratai: ${driveType}`,
+              category === "car" && bodyType && `Kėbulas: ${bodyType}`,
+              category === "car" && doorCount && `Durų skaičius: ${doorCount}`,
+              category === "motorcycle" && motorcycleType && `Motociklo tipas: ${motorcycleType}`,
+              `Miestas: ${city.trim()}`,
+              category === "car" && driveType && `Varantieji ratai: ${driveType}`,
               color && `Spalva: ${color}`,
               inspectionUntil && `TA iki: ${inspectionUntil}`,
               "",
@@ -466,23 +727,42 @@ export default function VehicleListingForm() {
         </p>
       </div>
 
-      <label className="block font-semibold text-[#24333D]">
-        Transporto priemonės tipas *
-        <select
-          value={category}
-          onChange={(event) => {
-            setCategory(event.target.value as Category);
-            setManufacturer("");
-            setModel("");
-          }}
-          disabled={loading}
-          className={inputStyle}
+      <div className="rounded-2xl border border-[#D9E2E0] bg-[#F5F9F8] p-4">
+        <label className="block font-semibold text-[#24333D]">
+          VIN kodas – automatinis duomenų užpildymas
+          <input
+            type="text"
+            value={vin}
+            onChange={(event) => {
+              vinRequestRef.current++;
+              clearPreviousVinData();
+              setVin(event.target.value.toUpperCase());
+              setVinMessage("");
+            }}
+            maxLength={17}
+            disabled={loading || vinLoading}
+            className={inputStyle}
+            placeholder="Įvesk 17 simbolių VIN"
+            autoComplete="off"
+          />
+        </label>
+        <button
+          type="button"
+          onClick={handleVinLookup}
+          disabled={loading || vinLoading || vin.trim().length !== 17}
+          className="mt-3 rounded-xl bg-[#426A70] px-5 py-3 font-semibold text-white disabled:opacity-50"
         >
-          <option value="car">Automobilis</option>
-          <option value="motorcycle">Motociklas</option>
-        </select>
-      </label>
-
+          {vinLoading ? "Tikrinamas VIN..." : "Patikrinti VIN"}
+        </button>
+        {vinMessage && (
+          <p className="mt-3 text-sm text-[#24333D]" role="status">
+            {vinMessage}
+          </p>
+        )}
+        <p className="mt-2 text-xs text-slate-500">
+          Duomenys gaunami iš NHTSA vPIC. Europos automobilių informacija gali būti nepilna.
+        </p>
+      </div>
       <VehicleMakeModelPicker
         category={category}
         manufacturer={manufacturer}
@@ -537,6 +817,20 @@ export default function VehicleListingForm() {
         </select>
       </label>
 
+      <label className="block font-semibold text-[#24333D]">
+        Miestas, kuriame yra transporto priemonė *
+        <input
+          type="text"
+          value={city}
+          onChange={(event) => setCity(event.target.value)}
+          required
+          disabled={loading}
+          className={inputStyle}
+          placeholder="Pvz., Vilnius"
+          maxLength={100}
+        />
+      </label>
+
       <div className="border-t border-slate-200 pt-6">
         <h3 className="text-xl font-bold text-[#24333D]">
           Techninė informacija
@@ -547,9 +841,9 @@ export default function VehicleListingForm() {
             { label: "Rida (km)", value: mileage, setter: setMileage, type: "number" },
             { label: "Variklio tūris (cm³)", value: engineCapacity, setter: setEngineCapacity, type: "number" },
             { label: "Variklio galia (kW)", value: enginePower, setter: setEnginePower, type: "number" },
-            { label: "Spalva", value: color, setter: setColor, type: "text" },
+            
             { label: "Techninė apžiūra iki", value: inspectionUntil, setter: setInspectionUntil, type: "month" },
-            { label: "VIN kodas", value: vin, setter: setVin, type: "text" },
+
           ].map((field) => (
             <label key={field.label} className="block font-semibold text-[#24333D]">
               {field.label}
@@ -565,7 +859,12 @@ export default function VehicleListingForm() {
 
           {[
             {
-              label: "Kuro tipas",
+              label: "Spalva",
+              value: color,
+              setter: setColor,
+              options: ["Juoda", "Balta", "Pilka", "Sidabrinė", "Mėlyna", "Raudona", "Žalia", "Ruda", "Smėlio", "Geltona", "Oranžinė", "Violetinė", "Auksinė", "Kita"],
+            },
+            {              label: "Kuro tipas",
               value: fuelType,
               setter: setFuelType,
               options: ["Benzinas", "Dyzelinas", "Benzinas / dujos", "Hibridas", "Įkraunamas hibridas", "Elektra", "Kita"],
@@ -576,18 +875,33 @@ export default function VehicleListingForm() {
               setter: setTransmission,
               options: ["Mechaninė", "Automatinė"],
             },
-            {
-              label: "Kėbulo tipas",
-              value: bodyType,
-              setter: setBodyType,
-              options: ["Sedanas", "Universalas", "Hečbekas", "Visureigis", "Vienatūris", "Kupė", "Kabrioletas", "Kita"],
-            },
-            {
-              label: "Varantieji ratai",
-              value: driveType,
-              setter: setDriveType,
-              options: ["Priekiniai", "Galiniai", "Visi (4x4)"],
-            },
+            ...(category === "car" ? [
+              {
+                label: "Kėbulo tipas",
+                value: bodyType,
+                setter: setBodyType,
+                options: ["Sedanas", "Universalas", "Hečbekas", "Visureigis", "Vienatūris", "Kupė", "Kabrioletas", "Kita"],
+              },
+              {
+                label: "Varantieji ratai",
+                value: driveType,
+                setter: setDriveType,
+                options: ["Priekiniai", "Galiniai", "Visi (4x4)"],
+              },
+              {
+                label: "Durų skaičius",
+                value: doorCount,
+                setter: setDoorCount,
+                options: ["2", "3", "4", "5", "6", "7", "2/3", "4/5", "6/7", "Kita"],
+              },
+            ] : [
+              {
+                label: "Motociklo tipas",
+                value: motorcycleType,
+                setter: setMotorcycleType,
+                options: ["Sportinis", "Turistinis", "Čioperis / kruizeris", "Enduro", "Krosinis", "Naked", "Motoroleris", "Klasikinis", "Kita"],
+              },
+            ]),
           ].map((field) => (
             <label key={field.label} className="block font-semibold text-[#24333D]">
               {field.label}
@@ -832,3 +1146,4 @@ export default function VehicleListingForm() {
     </form>
   );
 }
+

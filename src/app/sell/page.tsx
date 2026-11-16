@@ -792,58 +792,79 @@ export default function SellPage() {
           </div>
         )}
 
-        {/* PARDAVIMO TIPO PASIRINKIMAS */}
+        {/* AUTO_MOTO_SELL_CHOICES_V1 */}
+        <div className="mb-6">
+          <h2 className="mb-4 text-xl font-bold text-[#24333D]">
+            Ką norite parduoti?
+          </h2>
 
-        <div className="mb-6 grid gap-4 sm:grid-cols-2">
-          <button
-            type="button"
-            disabled={loading || Boolean(donorVehicle)}
-            onClick={() => {
-              setSaleType("part");
-              setMessage("");
-            }}
-            className={`rounded-2xl border-2 p-5 text-left transition disabled:cursor-not-allowed ${
-              saleType === "part"
-                ? "border-[#426A70] bg-[#EDF4F2]"
-                : "border-[#E3E9E7] bg-white hover:border-[#9BB5B7]"
-            }`}
-          >
-            <span className="text-3xl">⚙️</span>
-            <h2 className="mt-3 text-lg font-bold text-[#24333D]">
-              Dalys ir komplektai
-            </h2>
-            <p className="mt-2 text-sm text-slate-600">
-              Sandėlio apskaita, vidinis kodas ir būsimos
-              QR etiketės.
-            </p>
-          </button>
+          <div className="grid grid-cols-2 gap-3 sm:gap-4">
+            {[
+              {
+                label: "Automobilį",
+                icon: "🚗",
+                type: "vehicle" as SaleType,
+                category: "car",
+              },
+              {
+                label: "Motociklą",
+                icon: "🏍️",
+                type: "vehicle" as SaleType,
+                category: "motorcycle",
+              },
+              {
+                label: "Automobilio dalį",
+                icon: "⚙️",
+                type: "part" as SaleType,
+                category: "car",
+              },
+              {
+                label: "Motociklo dalį",
+                icon: "🔧",
+                type: "part" as SaleType,
+                category: "motorcycle",
+              },
+            ].map((option) => {
+              const selected =
+                saleType === option.type &&
+                category === option.category;
 
-          <button
-            type="button"
-            disabled={loading || Boolean(donorVehicle)}
-            onClick={() => {
-              setSaleType("vehicle");
-              setMessage("");
-            }}
-            className={`rounded-2xl border-2 p-5 text-left transition disabled:cursor-not-allowed ${
-              saleType === "vehicle"
-                ? "border-[#426A70] bg-[#EDF4F2]"
-                : "border-[#E3E9E7] bg-white hover:border-[#9BB5B7]"
-            }`}
-          >
-            <span className="text-3xl">🚗</span>
-            <h2 className="mt-3 text-lg font-bold text-[#24333D]">
-              Transporto priemonės
-            </h2>
-            <p className="mt-2 text-sm text-slate-600">
-              Automobiliai ir motociklai – atskira
-              skelbimų kategorija.
-            </p>
-          </button>
+              return (
+                <button
+                  key={option.label}
+                  type="button"
+                  disabled={loading || Boolean(donorVehicle)}
+                  onClick={() => {
+                    setSaleType(option.type);
+                    setCategory(option.category);
+                    setPartCatalogId(null);
+                    setMessage("");
+                  }}
+                  aria-pressed={selected}
+                  className={`rounded-2xl border-2 p-4 text-center transition disabled:cursor-not-allowed disabled:opacity-60 sm:p-6 ${
+                    selected
+                      ? "border-[#426A70] bg-[#EDF4F2]"
+                      : "border-[#E3E9E7] bg-white hover:border-[#9BB5B7]"
+                  }`}
+                >
+                  <span className="block text-4xl" aria-hidden="true">
+                    {option.icon}
+                  </span>
+                  <span className="mt-3 block text-sm font-bold text-[#24333D] sm:text-lg">
+                    {option.label}
+                  </span>
+                  {selected && (
+                    <span className="mt-2 block text-xs font-semibold text-[#426A70]">
+                      ✓ Pasirinkta
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
-
         {saleType === "vehicle" ? (
-          <VehicleListingForm />
+          <VehicleListingForm key={category} initialCategory={category === "motorcycle" ? "motorcycle" : "car"} />
         ) : (
           <form
             onSubmit={handleSubmit}
@@ -1482,4 +1503,6 @@ export default function SellPage() {
     </main>
   );
 }
+
+
 
